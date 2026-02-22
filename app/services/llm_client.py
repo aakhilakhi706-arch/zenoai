@@ -8,11 +8,13 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
     # 1. DIRECT GOOGLE GEMINI API (Primary)
     # ==========================================
     if model.startswith("google/"):
-        # Dynamic Model Name Extraction
+        
+        # TRUST THE ADMIN PANEL: 
+        # Extract "gemini-2.5-flash" directly from "google/gemini-2.5-flash:free"
         try:
             google_model_id = model.split("/")[1].replace(":free", "")
         except IndexError:
-            google_model_id = "gemini-2.5-flash" # Fallback
+            google_model_id = "gemini-2.5-flash" # Default if string is malformed
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{google_model_id}:streamGenerateContent?alt=sse&key={settings.GOOGLE_API_KEY}"
 
@@ -22,17 +24,18 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
             if msg["role"] == "system":
                 system_prompt = msg["content"]
 
-        # 2. STRICT Context Formatting (Fixes Repetition)
+        # 2. CONTEXT FIXER (Crucial for "Looping" issues)
+        # Google API throws errors or ignores context if you send two "User" messages in a row.
+        # This block merges them so the AI actually remembers what you said.
         google_messages = []
         for msg in messages:
             if msg["role"] == "system":
-                continue # Skip, we handled it above
+                continue 
             
-            # Google only understands "user" or "model"
+            # Map roles to strictly "user" or "model"
             role = "user" if msg["role"] == "user" else "model"
             
-            # MERGE LOGIC: If the last message has the same role, combine them.
-            # This prevents Google from getting confused and ignoring history.
+            # If the last message was from the SAME role, append to it instead of creating a new one.
             if google_messages and google_messages[-1]["role"] == role:
                 google_messages[-1]["parts"][0]["text"] += f"\n\n{msg['content']}"
             else:
@@ -45,25 +48,31 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
         payload = {
             "contents": google_messages,
             "generationConfig": {
-                "maxOutputTokens": max_tokens, # Uses the value from config
-                "temperature": 0.7,            # Adds creativity
+                "maxOutputTokens": max_tokens,
+                "temperature": 0.7, # Creativity (prevent robotic looping)
                 "topP": 0.95,
                 "topK": 40
             },
             "systemInstruction": {
                 "parts": [{"text": system_prompt}]
-            }
+            },
+            # Disable safety filters to ensure code generation isn't blocked
+            "safetySettings": [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+            ]
         }
 
         headers = {"Content-Type": "application/json"}
 
-        # Increased connection timeout safety
         async with httpx.AsyncClient(timeout=httpx.Timeout(timeout + 10.0, connect=10.0)) as client:
             async with client.stream("POST", url, headers=headers, json=payload) as response:
                 if response.status_code != 200:
                     body = await response.aread()
-                    # Graceful failover logic triggers here if Google fails
-                    raise Exception(f"HTTP {response.status_code} from Direct Google API: {body.decode()}")
+                    # If 2.5 fails, it will print the specific Google error here
+                    raise Exception(f"HTTP {response.status_code} from Google ({google_model_id}): {body.decode()}")
                 
                 async for line in response.aiter_lines():
                     if line.startswith("data: "):
