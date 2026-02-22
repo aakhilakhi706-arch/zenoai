@@ -8,8 +8,8 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
     # 1. DIRECT GOOGLE GEMINI API (Primary)
     # ==========================================
     if model.startswith("google/"):
-        # Force the stable, incredibly fast Gemini 2.0 direct API model
-        google_model_id = "gemini-2.0-flash" 
+        # We MUST use 1.5-flash. Google gives a 0-quota limit to new accounts for 2.0-flash in some regions.
+        google_model_id = "gemini-1.5-flash" 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{google_model_id}:streamGenerateContent?alt=sse&key={settings.GOOGLE_API_KEY}"
 
         system_prompt = ""
@@ -61,10 +61,10 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
                                         yield part["text"]
                         except json.JSONDecodeError:
                             continue
-        return # Exit here so it doesn't trigger OpenRouter code
+        return
 
     # ==========================================
-    # 2. OPENROUTER API (Fallback for Llama/Mistral)
+    # 2. OPENROUTER API (Fallback)
     # ==========================================
     url = "https://openrouter.ai/api/v1/chat/completions"
     
