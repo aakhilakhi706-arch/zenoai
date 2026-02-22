@@ -2,14 +2,25 @@ import asyncpg
 import json
 import uuid
 import time
+import ssl  # <-- ADD THIS IMPORT
 from app.core.config import settings
 
 pool = None
 
 async def init_db():
     global pool
-    # Connect to Cloud PostgreSQL
-    pool = await asyncpg.create_pool(settings.DATABASE_URL)
+    
+    # 1. Neon requires SSL for external connections
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
+    # Connect to Neon Serverless PostgreSQL
+    pool = await asyncpg.create_pool(
+        settings.DATABASE_URL,
+        ssl=ssl_context,          # <-- Applies the SSL fix
+        statement_cache_size=0    # <-- CRITICAL FOR NEON: Prevents connection pooler crashes
+    )
     
     async with pool.acquire() as db:
         await db.execute("""
@@ -17,6 +28,7 @@ async def init_db():
                 id TEXT PRIMARY KEY, created_at REAL
             )
         """)
+        # ... (keep the rest of your table creation code exactly the same)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 id TEXT PRIMARY KEY, session_id TEXT, role TEXT, content TEXT, timestamp REAL
