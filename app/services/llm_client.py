@@ -8,8 +8,8 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
     # 1. DIRECT GOOGLE GEMINI API (Primary)
     # ==========================================
     if model.startswith("google/"):
-        # We MUST use 1.5-flash. Google gives a 0-quota limit to new accounts for 2.0-flash in some regions.
-        google_model_id = "gemini-1.5-flash" 
+        # DYNAMIC ROUTING: Extracts exact model name from Admin UI (e.g. "gemini-2.5-flash")
+        google_model_id = model.split("/")[1].replace(":free", "") 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{google_model_id}:streamGenerateContent?alt=sse&key={settings.GOOGLE_API_KEY}"
 
         system_prompt = ""
