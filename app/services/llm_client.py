@@ -8,45 +8,61 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
     # 1. DIRECT GOOGLE GEMINI API (Primary)
     # ==========================================
     if model.startswith("google/"):
-        # DYNAMIC ROUTING: Extracts exact model name from Admin UI (e.g. "gemini-2.5-flash")
-        google_model_id = model.split("/")[1].replace(":free", "") 
+        # Dynamic Model Name Extraction
+        try:
+            google_model_id = model.split("/")[1].replace(":free", "")
+        except IndexError:
+            google_model_id = "gemini-2.5-flash" # Fallback
+
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{google_model_id}:streamGenerateContent?alt=sse&key={settings.GOOGLE_API_KEY}"
 
-        system_prompt = ""
-        google_messages = []
-
+        # 1. Extract System Prompt
+        system_prompt = "You are ZenoAi, a helpful conversational AI."
         for msg in messages:
             if msg["role"] == "system":
                 system_prompt = msg["content"]
-            elif msg["role"] == "user":
+
+        # 2. STRICT Context Formatting (Fixes Repetition)
+        google_messages = []
+        for msg in messages:
+            if msg["role"] == "system":
+                continue # Skip, we handled it above
+            
+            # Google only understands "user" or "model"
+            role = "user" if msg["role"] == "user" else "model"
+            
+            # MERGE LOGIC: If the last message has the same role, combine them.
+            # This prevents Google from getting confused and ignoring history.
+            if google_messages and google_messages[-1]["role"] == role:
+                google_messages[-1]["parts"][0]["text"] += f"\n\n{msg['content']}"
+            else:
                 google_messages.append({
-                    "role": "user",
-                    "parts": [{"text": msg["content"]}]
-                })
-            elif msg["role"] == "assistant":
-                google_messages.append({
-                    "role": "model",
-                    "parts": [{"text": msg["content"]}]
+                    "role": role,
+                    "parts": [{"text": msg['content']}]
                 })
 
+        # 3. Payload Construction
         payload = {
             "contents": google_messages,
             "generationConfig": {
-                "maxOutputTokens": max_tokens,
+                "maxOutputTokens": max_tokens, # Uses the value from config
+                "temperature": 0.7,            # Adds creativity
+                "topP": 0.95,
+                "topK": 40
+            },
+            "systemInstruction": {
+                "parts": [{"text": system_prompt}]
             }
         }
 
-        if system_prompt:
-            payload["systemInstruction"] = {
-                "parts": [{"text": system_prompt}]
-            }
-
         headers = {"Content-Type": "application/json"}
 
-        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=10.0)) as client:
+        # Increased connection timeout safety
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout + 10.0, connect=10.0)) as client:
             async with client.stream("POST", url, headers=headers, json=payload) as response:
                 if response.status_code != 200:
                     body = await response.aread()
+                    # Graceful failover logic triggers here if Google fails
                     raise Exception(f"HTTP {response.status_code} from Direct Google API: {body.decode()}")
                 
                 async for line in response.aiter_lines():
