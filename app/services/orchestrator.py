@@ -17,6 +17,7 @@ class Orchestrator:
         
         # 3. CRITICAL FIX: Check if the last message in history is actually the one we just sent.
         # If the DB was slow and didn't return our new message, we MANUALLY append it.
+        # This guarantees the AI sees your "Make a table" request instead of just old history.
         if not history or history[-1]["content"] != user_message:
             history.append({"role": "user", "content": user_message})
 
@@ -32,7 +33,8 @@ class Orchestrator:
         
         while current_model_idx < len(fallback_order):
             model = fallback_order[current_model_idx]
-            model_conf = next((m for m in config["models"] if m["id"] == model), {"timeout": 15})
+            # Use a default timeout of 15s if model config is missing
+            model_conf = next((m for m in config.get("models", []) if m["id"] == model), {"timeout": 15})
             
             for attempt in range(max_retries):
                 try:
@@ -65,3 +67,6 @@ class Orchestrator:
         error_msg = "\n\n[ZenoAi Alert] All providers unavailable. Please try again."
         yield error_msg
         await log_metric(session_id, "none", (time.time()-start_time)*1000, True, 0, "failed", "All models failed")
+
+# --- THIS IS THE LINE THAT WAS MISSING ---
+orchestrator = Orchestrator()
