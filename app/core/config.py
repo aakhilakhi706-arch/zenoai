@@ -4,7 +4,9 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = ""
-    GOOGLE_API_KEY: str
+    GOOGLE_API_KEY: str = ""
+    XAI_API_KEY: str = ""       # Added for Grok
+    DEEPSEEK_API_KEY: str = ""  # Added for DeepSeek
     DATABASE_URL: str
     ENVIRONMENT: str = "production"
     
