@@ -3,168 +3,274 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zeno Infrastructure | Admin</title>
+    <title>ZenoAi | Infrastructure Command</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #000000;
-            --fg: #ffffff;
-            --border: #1a1a1a;
-            --muted: #888888;
-            --hover: #0a0a0a;
+            --bg: #050505;
+            --surface: #0a0a0a;
+            --border: #1f1f1f;
+            --accent: #fff;
+            --text-muted: #666;
         }
-        body { 
-            background-color: var(--bg); 
-            color: var(--fg); 
-            font-family: 'Inter', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
+        body { background-color: var(--bg); color: #e5e5e5; font-family: 'Inter', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         
-        /* Minimalist Scrollbar */
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg); }
-        ::-webkit-scrollbar-thumb { background: #333; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
-
-        /* Strict Table Styling */
-        th { border-bottom: 1px solid var(--border); font-weight: 500; color: var(--muted); padding-bottom: 0.75rem; }
-        td { border-bottom: 1px solid var(--border); padding: 0.75rem 0; }
-        tr:hover td { background-color: var(--hover); }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
         
-        /* Selection */
-        ::selection { background-color: var(--fg); color: var(--bg); }
+        /* Utilities */
+        .glass { background: rgba(10, 10, 10, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+        .card { background: var(--surface); border: 1px solid var(--border); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .status-success { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+        .status-error { background: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+        
+        /* Animations */
+        @keyframes pulse-subtle { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .animate-pulse-slow { animation: pulse-subtle 3s infinite; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col text-sm">
+<body class="min-h-screen flex flex-col overflow-hidden">
 
-    <!-- Header -->
-    <header class="border-b border-[#1a1a1a] px-6 h-14 flex items-center justify-between sticky top-0 bg-black z-50">
+    <!-- TOP NAVIGATION -->
+    <header class="glass h-14 flex items-center justify-between px-6 sticky top-0 z-50">
         <div class="flex items-center gap-8">
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-white"></div>
-                <h1 class="font-semibold tracking-tight text-base">Zeno<span class="text-[#888888] font-normal">/Admin</span></h1>
+                <div class="w-5 h-5 bg-white flex items-center justify-center rounded-[2px]">
+                    <span class="text-black font-bold text-xs">Z</span>
+                </div>
+                <span class="font-semibold tracking-tight">ZenoAi<span class="text-[#444] font-normal">/Admin</span></span>
             </div>
             
-            <nav class="flex gap-6 h-14" id="main-nav">
-                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="h-full border-b-2 border-white text-white font-medium transition-colors">Overview</button>
-                <button onclick="switchTab('live')" id="tab-live" class="h-full border-b-2 border-transparent text-[#888888] hover:text-white transition-colors">Telemetry</button>
-                <button onclick="switchTab('config')" id="tab-config" class="h-full border-b-2 border-transparent text-[#888888] hover:text-white transition-colors">Configuration</button>
+            <nav class="flex gap-1">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="px-4 py-1.5 text-xs font-medium text-white bg-[#1a1a1a] rounded border border-[#333] transition-all">Overview</button>
+                <button onclick="switchTab('live')" id="nav-live" class="px-4 py-1.5 text-xs font-medium text-[#888] hover:text-white transition-all">Live Stream</button>
+                <button onclick="switchTab('config')" id="nav-config" class="px-4 py-1.5 text-xs font-medium text-[#888] hover:text-white transition-all">Configuration</button>
             </nav>
         </div>
-        <div class="flex items-center gap-4 text-xs font-mono text-[#888888]">
-            <span class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> SYSTEM: ONLINE</span>
+        
+        <div class="flex items-center gap-4 text-xs font-mono">
+            <div class="flex items-center gap-2 px-3 py-1 bg-[#111] border border-[#222] rounded-full">
+                <span class="status-dot status-success animate-pulse-slow"></span>
+                <span class="text-[#888]">SYSTEM OPERATIONAL</span>
+            </div>
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="flex-1 w-full max-w-7xl mx-auto p-6 md:p-10">
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 overflow-y-auto p-6 md:p-8">
         
-        <!-- DASHBOARD TAB -->
-        <div id="view-dashboard" class="space-y-8 animate-in fade-in duration-300">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="border border-[#1a1a1a] p-5 flex flex-col justify-between h-32 bg-[#050505]">
-                    <span class="text-[#888888] text-xs uppercase tracking-wider font-medium">Throughput (1H)</span>
-                    <span class="text-4xl font-mono tracking-tight" id="stat-req">--</span>
+        <!-- ==================== TAB: DASHBOARD ==================== -->
+        <div id="view-dashboard" class="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-300">
+            <!-- KPIS -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="card p-5 flex flex-col justify-between h-32 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg width="60" height="60" fill="white"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                    </div>
+                    <span class="text-[#666] text-[10px] uppercase tracking-wider font-semibold">Requests (1H)</span>
+                    <span class="text-3xl font-mono tracking-tighter text-white" id="stat-req">--</span>
                 </div>
-                <div class="border border-[#1a1a1a] p-5 flex flex-col justify-between h-32 bg-[#050505]">
-                    <span class="text-[#888888] text-xs uppercase tracking-wider font-medium">Global Latency</span>
+                <div class="card p-5 flex flex-col justify-between h-32">
+                    <span class="text-[#666] text-[10px] uppercase tracking-wider font-semibold">Avg Latency</span>
                     <div class="flex items-baseline gap-1">
-                        <span class="text-4xl font-mono tracking-tight" id="stat-lat">--</span>
-                        <span class="text-[#888888] font-mono text-sm">ms</span>
+                        <span class="text-3xl font-mono tracking-tighter text-white" id="stat-lat">--</span>
+                        <span class="text-[#444] font-mono text-sm">ms</span>
                     </div>
                 </div>
-                <div class="border border-[#1a1a1a] p-5 flex flex-col justify-between h-32 bg-[#050505]">
-                    <span class="text-[#888888] text-xs uppercase tracking-wider font-medium">Router Interventions</span>
-                    <span class="text-4xl font-mono tracking-tight" id="stat-fall">--</span>
+                <div class="card p-5 flex flex-col justify-between h-32">
+                    <span class="text-[#666] text-[10px] uppercase tracking-wider font-semibold">Fallbacks Triggered</span>
+                    <span class="text-3xl font-mono tracking-tighter text-white" id="stat-fall">--</span>
+                </div>
+                <div class="card p-5 flex flex-col justify-between h-32">
+                    <span class="text-[#666] text-[10px] uppercase tracking-wider font-semibold">Active Provider</span>
+                    <span class="text-lg font-mono tracking-tight text-green-400 truncate" id="stat-provider">AUTO</span>
                 </div>
             </div>
 
-            <div class="pt-4">
-                <h2 class="text-xs uppercase tracking-wider font-medium text-[#888888] mb-4">Routing Pool Status</h2>
-                <div class="overflow-x-auto border border-[#1a1a1a]">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-[#050505]">
+            <!-- Model Distribution -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="col-span-2 card">
+                    <div class="px-5 py-4 border-b border-[#1f1f1f] flex justify-between items-center">
+                        <h3 class="text-sm font-medium">Model Usage Distribution</h3>
+                        <span class="text-[10px] text-[#444] font-mono">REAL-TIME</span>
+                    </div>
+                    <div class="p-0">
+                        <table class="w-full text-left">
+                            <thead class="bg-[#111] text-[#666] text-[10px] uppercase font-semibold">
+                                <tr>
+                                    <th class="px-5 py-3">Model ID</th>
+                                    <th class="px-5 py-3 text-right">Volume</th>
+                                    <th class="px-5 py-3 w-32">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="model-table" class="font-mono text-xs divide-y divide-[#1f1f1f]">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card p-5 flex flex-col justify-center items-center text-center space-y-4">
+                    <div class="w-16 h-16 rounded-full bg-[#111] border border-[#222] flex items-center justify-center text-2xl">⚡</div>
+                    <div>
+                        <h3 class="text-white font-medium">System Health</h3>
+                        <p class="text-xs text-[#666] mt-1">All routing systems are functioning normal.</p>
+                    </div>
+                    <button class="px-4 py-2 bg-white text-black text-xs font-bold rounded hover:bg-gray-200 transition">RUN DIAGNOSTICS</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB: LIVE STREAM ==================== -->
+        <div id="view-live" class="hidden space-y-4 max-w-7xl mx-auto animate-in fade-in duration-300">
+            <div class="flex justify-between items-end">
+                <div>
+                    <h2 class="text-lg font-medium">Live Telemetry</h2>
+                    <p class="text-xs text-[#666]">Incoming requests streamed from the orchestrator.</p>
+                </div>
+                <button onclick="fetchLive()" class="text-xs text-white border border-[#333] px-3 py-1.5 hover:bg-[#111] transition">REFRESH LOGS</button>
+            </div>
+            
+            <div class="card overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left whitespace-nowrap">
+                        <thead class="bg-[#111] text-[#666] text-[10px] uppercase font-semibold border-b border-[#1f1f1f]">
                             <tr>
-                                <th class="pl-4 py-3 text-xs uppercase">Model Identifier</th>
-                                <th class="py-3 text-xs uppercase">Requests</th>
-                                <th class="py-3 text-xs uppercase">State</th>
+                                <th class="px-4 py-3">Time</th>
+                                <th class="px-4 py-3">Session</th>
+                                <th class="px-4 py-3">Model Route</th>
+                                <th class="px-4 py-3 text-right">Latency</th>
+                                <th class="px-4 py-3 text-center">Fallback</th>
+                                <th class="px-4 py-3 text-right">Result</th>
                             </tr>
                         </thead>
-                        <tbody id="model-table" class="font-mono text-xs">
-                            <!-- Populated by JS -->
+                        <tbody id="live-table" class="font-mono text-xs divide-y divide-[#1f1f1f]">
+                            <!-- Populated via JS -->
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- TELEMETRY TAB -->
-        <div id="view-live" class="hidden space-y-4 animate-in fade-in duration-300">
-            <div class="flex justify-between items-end mb-4">
-                <h2 class="text-xs uppercase tracking-wider font-medium text-[#888888]">Live Request Stream</h2>
-                <button onclick="fetchLive()" class="px-3 py-1.5 border border-[#1a1a1a] bg-[#050505] hover:bg-white hover:text-black text-xs font-mono transition-colors">REFRESH</button>
-            </div>
-            <div class="border border-[#1a1a1a] overflow-x-auto">
-                <table class="w-full text-left border-collapse whitespace-nowrap">
-                    <thead class="bg-[#050505]">
-                        <tr>
-                            <th class="pl-4 py-3 text-xs uppercase">Timestamp</th>
-                            <th class="py-3 text-xs uppercase">Session ID</th>
-                            <th class="py-3 text-xs uppercase">Provider/Model</th>
-                            <th class="py-3 text-xs uppercase text-right">Latency</th>
-                            <th class="py-3 text-xs uppercase text-center">Fallback</th>
-                            <th class="pr-4 py-3 text-xs uppercase text-right">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="live-table" class="font-mono text-xs">
-                        <!-- Populated by JS -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- CONFIGURATION TAB -->
-        <div id="view-config" class="hidden space-y-4 animate-in fade-in duration-300">
-            <div class="flex flex-col gap-2 mb-4">
-                <h2 class="text-xs uppercase tracking-wider font-medium text-[#888888]">Runtime Configuration</h2>
-                <p class="text-xs text-[#666666]">Modifications update the orchestrator in real-time. Invalid JSON will be rejected.</p>
-            </div>
+        <!-- ==================== TAB: CONFIGURATION ==================== -->
+        <div id="view-config" class="hidden space-y-6 max-w-5xl mx-auto animate-in fade-in duration-300">
             
-            <div class="border border-[#1a1a1a] relative group focus-within:border-[#333333] transition-colors">
-                <div class="absolute top-0 right-0 px-3 py-1 border-b border-l border-[#1a1a1a] bg-[#050505] text-[#888888] font-mono text-[10px] uppercase">
-                    runtime_config.json
+            <div class="bg-gradient-to-r from-[#111] to-[#050505] border border-[#1f1f1f] p-6 rounded-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-base font-semibold text-white">Universal Provider Switcher</h2>
+                    <p class="text-xs text-[#666] mt-1">Select a preset to instantly reconfigure the routing engine.</p>
                 </div>
-                <textarea id="config-editor" class="w-full h-[500px] bg-black text-white p-6 pt-10 font-mono text-sm outline-none resize-none leading-relaxed" spellcheck="false"></textarea>
+                <div class="relative">
+                    <select id="preset-selector" onchange="loadPreset()" class="bg-[#000] border border-[#333] text-white text-xs pl-4 pr-10 py-2.5 rounded hover:border-[#555] focus:border-white outline-none appearance-none cursor-pointer min-w-[220px]">
+                        <option value="" disabled selected>Select Active Provider...</option>
+                        <option value="google">Direct Google (Gemini)</option>
+                        <option value="grok">Direct xAI (Grok)</option>
+                        <option value="deepseek">Direct DeepSeek</option>
+                        <option value="hybrid">✨ ULTIMATE HYBRID (All)</option>
+                        <option value="openrouter">OpenRouter (Aggregator)</option>
+                    </select>
+                    <div class="absolute right-3 top-3 pointer-events-none text-[#666]">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M7 10l5 5 5-5z"/></svg>
+                    </div>
+                </div>
             </div>
-            
-            <div class="flex justify-end gap-3 pt-2">
-                <button onclick="fetchConfig()" class="px-5 py-2 border border-[#333333] bg-transparent hover:bg-[#111111] text-xs font-medium transition-colors">Revert</button>
-                <button onclick="saveConfig()" class="px-5 py-2 bg-white text-black hover:bg-[#e5e5e5] text-xs font-medium transition-colors">Deploy Configuration</button>
+
+            <div class="card flex flex-col h-[600px] relative">
+                <div class="flex items-center justify-between px-4 py-2 border-b border-[#1f1f1f] bg-[#0a0a0a]">
+                    <span class="text-[10px] font-mono text-[#666] uppercase">runtime_config.json</span>
+                    <span class="text-[10px] text-[#444]" id="config-status">Ready to edit</span>
+                </div>
+                <textarea id="config-editor" class="flex-1 bg-[#050505] text-[#d4d4d4] p-4 font-mono text-xs outline-none resize-none leading-relaxed" spellcheck="false"></textarea>
+                <div class="p-4 border-t border-[#1f1f1f] bg-[#0a0a0a] flex justify-end gap-3">
+                    <button onclick="fetchConfig()" class="px-4 py-2 text-xs font-medium text-[#888] hover:text-white transition">Discard Changes</button>
+                    <button onclick="saveConfig()" class="px-6 py-2 bg-white text-black text-xs font-bold rounded hover:bg-[#ccc] transition shadow-lg shadow-white/10">DEPLOY CHANGES</button>
+                </div>
             </div>
         </div>
     </main>
 
     <script>
-        // Core Logic
-        function switchTab(tabId) {
-            ['dashboard', 'live', 'config'].forEach(id => {
-                document.getElementById(`view-${id}`).classList.add('hidden');
-                const btn = document.getElementById(`tab-${id}`);
-                btn.classList.remove('border-white', 'text-white');
-                btn.classList.add('border-transparent', 'text-[#888888]');
+        // --- PRESETS ---
+        const PRESETS = {
+            "google": {
+                "default_model": "google/gemini-2.0-flash-lite-preview-02-05:free",
+                "models": [
+                    {"id": "google/gemini-2.0-flash-lite-preview-02-05:free", "enabled": true, "timeout": 60},
+                    {"id": "google/gemini-1.5-flash", "enabled": true, "timeout": 60}
+                ],
+                "fallback_order": ["google/gemini-2.0-flash-lite-preview-02-05:free", "google/gemini-1.5-flash"],
+                "retry_count": 2, "max_tokens": 8192, "memory_window": 20,
+                "system_prompt": "You are ZenoAi (Google Powered). Be helpful, concise, and smart."
+            },
+            "grok": {
+                "default_model": "xai/grok-2-latest",
+                "models": [{"id": "xai/grok-2-latest", "enabled": true, "timeout": 60}],
+                "fallback_order": ["xai/grok-2-latest"],
+                "retry_count": 2, "max_tokens": 4096, "memory_window": 20,
+                "system_prompt": "You are ZenoAi (Grok Powered). Be helpful and smart."
+            },
+            "deepseek": {
+                "default_model": "deepseek/deepseek-chat",
+                "models": [{"id": "deepseek/deepseek-chat", "enabled": true, "timeout": 60}],
+                "fallback_order": ["deepseek/deepseek-chat"],
+                "retry_count": 2, "max_tokens": 4096, "memory_window": 20,
+                "system_prompt": "You are ZenoAi (DeepSeek Powered)."
+            },
+            "hybrid": {
+                "default_model": "google/gemini-2.0-flash-lite-preview-02-05:free",
+                "models": [
+                    {"id": "google/gemini-2.0-flash-lite-preview-02-05:free", "enabled": true, "timeout": 60},
+                    {"id": "xai/grok-2-latest", "enabled": true, "timeout": 60},
+                    {"id": "deepseek/deepseek-chat", "enabled": true, "timeout": 60},
+                    {"id": "google/gemini-1.5-flash", "enabled": true, "timeout": 60}
+                ],
+                "fallback_order": [
+                    "google/gemini-2.0-flash-lite-preview-02-05:free",
+                    "xai/grok-2-latest",
+                    "deepseek/deepseek-chat",
+                    "google/gemini-1.5-flash"
+                ],
+                "retry_count": 1, "max_tokens": 8192, "memory_window": 20,
+                "system_prompt": "You are ZenoAi, a hybrid intelligence. Answer intelligently."
+            },
+            "openrouter": {
+                "default_model": "google/gemini-2.0-flash-lite-preview-02-05:free",
+                "models": [
+                    {"id": "google/gemini-2.0-flash-lite-preview-02-05:free", "enabled": true, "timeout": 60},
+                    {"id": "meta-llama/llama-3.3-70b-instruct:free", "enabled": true, "timeout": 60},
+                    {"id": "deepseek/deepseek-r1:free", "enabled": true, "timeout": 60}
+                ],
+                "fallback_order": ["google/gemini-2.0-flash-lite-preview-02-05:free", "meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-r1:free"],
+                "retry_count": 2, "max_tokens": 4096, "memory_window": 15,
+                "system_prompt": "You are ZenoAi."
+            }
+        };
+
+        // --- APP LOGIC ---
+        
+        function switchTab(id) {
+            // Hide all
+            ['dashboard', 'live', 'config'].forEach(tab => {
+                document.getElementById(`view-${tab}`).classList.add('hidden');
+                const btn = document.getElementById(`nav-${tab}`);
+                btn.classList.remove('bg-[#1a1a1a]', 'text-white', 'border-[#333]');
+                btn.classList.add('text-[#888]', 'border-transparent');
             });
             
-            document.getElementById(`view-${tabId}`).classList.remove('hidden');
-            const activeBtn = document.getElementById(`tab-${tabId}`);
-            activeBtn.classList.remove('border-transparent', 'text-[#888888]');
-            activeBtn.classList.add('border-white', 'text-white');
+            // Show Active
+            document.getElementById(`view-${id}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`nav-${id}`);
+            activeBtn.classList.remove('text-[#888]', 'border-transparent');
+            activeBtn.classList.add('bg-[#1a1a1a]', 'text-white', 'border-[#333]');
 
-            if(tabId === 'dashboard') fetchStats();
-            if(tabId === 'live') fetchLive();
-            if(tabId === 'config') fetchConfig();
+            if (id === 'live') fetchLive();
+            if (id === 'config') fetchConfig();
+            if (id === 'dashboard') fetchStats();
         }
 
         async function fetchStats() {
@@ -173,18 +279,30 @@
                 const data = await res.json();
                 
                 document.getElementById('stat-req').innerText = data.req_last_hour;
-                document.getElementById('stat-lat').innerText = data.avg_latency.toFixed(0);
+                document.getElementById('stat-lat').innerText = Math.round(data.avg_latency);
                 document.getElementById('stat-fall').innerText = data.fallback_count;
+                
+                // Determine active provider based on most used model
+                const topModel = data.model_distribution[0]?.model || "NONE";
+                let provider = "OPENROUTER";
+                if(topModel.includes("google")) provider = "GOOGLE";
+                if(topModel.includes("grok")) provider = "XAI/GROK";
+                if(topModel.includes("deepseek")) provider = "DEEPSEEK";
+                document.getElementById('stat-provider').innerText = provider;
 
                 const tbody = document.getElementById('model-table');
-                tbody.innerHTML = data.model_distribution.map(m => `
-                    <tr>
-                        <td class="pl-4 py-3">${m.model}</td>
-                        <td class="py-3">${m.count}</td>
-                        <td class="py-3"><span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 bg-white rounded-full"></span> ACTIVE</span></td>
+                tbody.innerHTML = data.model_distribution.map((m, i) => `
+                    <tr class="hover:bg-[#111] transition-colors">
+                        <td class="px-5 py-3 text-white">${m.model}</td>
+                        <td class="px-5 py-3 text-right text-[#888]">${m.count}</td>
+                        <td class="px-5 py-3">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${i===0 ? 'bg-green-900/30 text-green-400' : 'bg-[#222] text-[#666]'}">
+                                ${i===0 ? 'PRIMARY' : 'STANDBY'}
+                            </span>
+                        </td>
                     </tr>
                 `).join('');
-            } catch(e) { console.error("Stats fetch failed", e); }
+            } catch(e) { console.error(e); }
         }
 
         async function fetchLive() {
@@ -194,53 +312,70 @@
                 const tbody = document.getElementById('live-table');
                 
                 tbody.innerHTML = data.map(r => `
-                    <tr>
-                        <td class="pl-4 py-3 text-[#888888]">${new Date(r.time * 1000).toISOString().split('T')[1].split('.')[0]}</td>
-                        <td class="py-3 truncate max-w-[120px]">${r.session}</td>
-                        <td class="py-3 truncate max-w-[200px]">${r.model}</td>
-                        <td class="py-3 text-right">${Math.round(r.latency)}ms</td>
-                        <td class="py-3 text-center">${r.fallback ? '<span class="text-white bg-[#1a1a1a] px-2 py-0.5 text-[10px]">ROUTED</span>' : '<span class="text-[#444444]">-</span>'}</td>
-                        <td class="pr-4 py-3 text-right">${r.status === 'success' ? '200 OK' : '<span class="underline decoration-1 underline-offset-2">ERR</span>'}</td>
+                    <tr class="hover:bg-[#0a0a0a] transition-colors border-b border-[#111]">
+                        <td class="px-4 py-3 text-[#666]">${new Date(r.time * 1000).toLocaleTimeString()}</td>
+                        <td class="px-4 py-3 text-[#888] truncate max-w-[100px]">${r.session.substring(0,8)}...</td>
+                        <td class="px-4 py-3 text-white">${r.model}</td>
+                        <td class="px-4 py-3 text-right text-[#888]">${Math.round(r.latency)}ms</td>
+                        <td class="px-4 py-3 text-center">
+                            ${r.fallback ? '<span class="text-orange-500">⚠ YES</span>' : '<span class="text-[#333]">-</span>'}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <span class="${r.status === 'success' ? 'text-green-500' : 'text-red-500'}">●</span>
+                        </td>
                     </tr>
                 `).join('');
-            } catch(e) { console.error("Live fetch failed", e); }
+            } catch(e) {}
         }
 
-        async function fetchConfig() {
-            try {
-                const res = await fetch('/api/admin/config');
-                const data = await res.json();
-                document.getElementById('config-editor').value = JSON.stringify(data, null, 2);
-            } catch(e) { console.error("Config fetch failed", e); }
-        }
-
-        async function saveConfig() {
-            const editor = document.getElementById('config-editor');
-            try {
-                const parsed = JSON.parse(editor.value);
-                const res = await fetch('/api/admin/config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(parsed)
-                });
-                if(res.ok) {
-                    const btn = document.querySelector('button[onclick="saveConfig()"]');
-                    const originalText = btn.innerText;
-                    btn.innerText = "DEPLOYED ✓";
-                    btn.classList.add('bg-[#1a1a1a]', 'text-white');
-                    setTimeout(() => {
-                        btn.innerText = originalText;
-                        btn.classList.remove('bg-[#1a1a1a]', 'text-white');
-                    }, 2000);
-                }
-            } catch (e) {
-                alert('CONFIG ERROR: Invalid JSON payload.');
+        function loadPreset() {
+            const val = document.getElementById('preset-selector').value;
+            if(PRESETS[val]) {
+                const json = JSON.stringify(PRESETS[val], null, 4);
+                document.getElementById('config-editor').value = json;
+                
+                // Flash animation
+                const editor = document.getElementById('config-editor');
+                editor.style.backgroundColor = "#111";
+                setTimeout(() => editor.style.backgroundColor = "#050505", 200);
             }
         }
 
-        // Initialize
+        async function fetchConfig() {
+            const res = await fetch('/api/admin/config');
+            const data = await res.json();
+            document.getElementById('config-editor').value = JSON.stringify(data, null, 4);
+        }
+
+        async function saveConfig() {
+            const btn = document.querySelector('button[onclick="saveConfig()"]');
+            const originalText = btn.innerText;
+            btn.innerText = "DEPLOYING...";
+            
+            try {
+                const parsed = JSON.parse(document.getElementById('config-editor').value);
+                const res = await fetch('/api/admin/config', {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify(parsed)
+                });
+                if(res.ok) {
+                    btn.innerText = "SUCCESS ✓";
+                    btn.classList.add('bg-green-500', 'text-white');
+                    setTimeout(() => {
+                        btn.innerText = originalText;
+                        btn.classList.remove('bg-green-500', 'text-white');
+                    }, 2000);
+                }
+            } catch(e) {
+                alert("JSON Error: " + e.message);
+                btn.innerText = "ERROR ⚠";
+            }
+        }
+
+        // Init
         fetchStats();
-        setInterval(fetchStats, 5000);
+        setInterval(fetchStats, 5000); // Auto-refresh stats
     </script>
 </body>
 </html>
