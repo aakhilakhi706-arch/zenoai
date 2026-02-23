@@ -13,12 +13,19 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
 
     # --- 2. ROUTING LOGIC ---
     
-    # > GOOGLE DIRECT (Special Case)
+    # > THE FREE BYPASS (Crucial Fix)
+    # If the model has ":free", we MUST send it to OpenRouter.
+    # Do not send it to Direct Google/DeepSeek because they will reject the ":free" tag.
+    if model.endswith(":free"):
+        async for chunk in stream_generic(model, messages, max_tokens, timeout, "openrouter"):
+            yield chunk
+        return
+
+    # > GOOGLE DIRECT (Only for paid/custom models)
     if model.startswith("google/"):
-        # CRITICAL FIX: We must iterate and yield, NOT return
         async for chunk in stream_google(model, messages, max_tokens, timeout):
             yield chunk
-        return # Stop function here
+        return
 
     # > XAI (GROK) DIRECT
     elif model.startswith("xai/") or model.startswith("grok/"):
@@ -31,8 +38,6 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
         clean_model = model.replace("deepseek/", "")
 
     # --- 3. GENERIC DELEGATION (OpenRouter, Grok, DeepSeek) ---
-    # CRITICAL FIX: We yield from the generic streamer. 
-    # This ensures this function acts as a Generator in ALL scenarios.
     async for chunk in stream_generic(clean_model, messages, max_tokens, timeout, provider):
         yield chunk
 
@@ -42,7 +47,6 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
 # =========================================================
 async def stream_generic(model: str, messages: list, max_tokens: int, timeout: int, provider: str):
     
-    # Setup Keys & URLs
     if provider == "xai":
         api_key = settings.XAI_API_KEY
         base_url = "https://api.x.ai/v1/chat/completions"
@@ -83,13 +87,10 @@ async def stream_generic(model: str, messages: list, max_tokens: int, timeout: i
                 if line.startswith("data: ") and "[DONE]" not in line:
                     try:
                         data = json.loads(line[6:])
-                        
-                        # Handle standard OpenAI/OpenRouter format
                         if "choices" in data and len(data["choices"]) > 0:
                             delta = data["choices"][0].get("delta", {})
                             if "content" in delta:
                                 yield delta["content"]
-                                
                     except: continue
 
 
@@ -123,7 +124,7 @@ async def stream_google(model: str, messages: list, max_tokens: int, timeout: in
         "safetySettings": [{"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"}]
     }
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(timeout + 20.0)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(timeout + 20.0, connect=10.0)) as client:
         async with client.stream("POST", url, headers={"Content-Type": "application/json"}, json=payload) as response:
             if response.status_code != 200:
                 err = await response.aread()
