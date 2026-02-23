@@ -8,9 +8,6 @@ logging.basicConfig(level=logging.INFO)
 async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout: int):
     
     # --- 1. ROUTING LOGIC ---
-    # The Admin UI sends IDs like "xai/grok-2" or "google/gemini-..."
-    # We strip the prefix and route to the correct provider.
-
     provider = "openrouter" # Default
     api_key = settings.OPENROUTER_API_KEY
     base_url = "https://openrouter.ai/api/v1/chat/completions"
@@ -18,7 +15,10 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
 
     # > GOOGLE DIRECT
     if model.startswith("google/"):
-        return await stream_google(model, messages, max_tokens, timeout)
+        # FIX: We must loop and yield, not return directly
+        async for chunk in stream_google(model, messages, max_tokens, timeout):
+            yield chunk
+        return
     
     # > XAI (GROK) DIRECT
     elif model.startswith("xai/") or model.startswith("grok/"):
@@ -41,7 +41,6 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
         "HTTP-Referer": "https://zenoai.com",
     }
     
-    # Prepare Context (Standard OpenAI Format)
     conversation = messages 
     
     payload = {
@@ -52,9 +51,8 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
         "temperature": 0.7 
     }
 
-    # DeepSeek Specifics
     if provider == "deepseek" and "reasoner" in clean_model:
-        payload["max_tokens"] = 8192 # Reasoners need more room
+        payload["max_tokens"] = 8192 
 
     print(f"[ZenoAi] Routing to {provider.upper()} -> Model: {clean_model}")
 
@@ -73,15 +71,10 @@ async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout
                             delta = data["choices"][0].get("delta", {})
                             if "content" in delta:
                                 yield delta["content"]
-                            # DeepSeek Reasoning Content
-                            elif "reasoning_content" in delta:
-                                # Optional: yield reasoning if you want to see thoughts
-                                pass 
                     except: continue
 
 # --- 3. GOOGLE GEMINI SPECIAL CLIENT (With Memory Fix) ---
 async def stream_google(model: str, messages: list, max_tokens: int, timeout: int):
-    # Raw ID extraction (Trusts Admin UI)
     try:
         google_model_id = model.split("/")[1].replace(":free", "")
     except:
@@ -89,7 +82,6 @@ async def stream_google(model: str, messages: list, max_tokens: int, timeout: in
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{google_model_id}:streamGenerateContent?alt=sse&key={settings.GOOGLE_API_KEY}"
     
-    # Separate System Prompt
     system_prompt = "You are ZenoAi."
     conversation = []
     
@@ -97,7 +89,6 @@ async def stream_google(model: str, messages: list, max_tokens: int, timeout: in
         if msg["role"] == "system":
             system_prompt = msg["content"]
     
-    # Context Merging (The "Hi" Loop Fix)
     for msg in messages:
         if msg["role"] == "system": continue
         
