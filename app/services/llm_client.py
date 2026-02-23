@@ -7,33 +7,38 @@ logging.basicConfig(level=logging.INFO)
 
 async def stream_openrouter(model: str, messages: list, max_tokens: int, timeout: int):
     
-    # =========================================================
-    # ROUTING LOGIC (The Fix)
-    # =========================================================
-    
-    # 1. If it's a specific "Free Tier" model string, ALWAYS send to OpenRouter.
-    # This bypasses your personal (broken/empty) Direct API keys.
-    if model.endswith(":free"):
-        return await stream_generic(model, messages, max_tokens, timeout, "openrouter")
+    # --- 1. SETUP DEFAULT (OpenRouter) ---
+    provider = "openrouter"
+    clean_model = model
 
-    # 2. Direct Provider Routing (Only for paid/custom models)
+    # --- 2. ROUTING LOGIC ---
+    
+    # > GOOGLE DIRECT (Special Case)
     if model.startswith("google/"):
-        return await stream_google(model, messages, max_tokens, timeout)
-    
-    elif model.startswith("xai/") or model.startswith("grok/"):
-        clean = model.replace("xai/", "").replace("grok/", "")
-        return await stream_generic(clean, messages, max_tokens, timeout, "xai")
-        
-    elif model.startswith("deepseek/"):
-        clean = model.replace("deepseek/", "")
-        return await stream_generic(clean, messages, max_tokens, timeout, "deepseek")
+        # CRITICAL FIX: We must iterate and yield, NOT return
+        async for chunk in stream_google(model, messages, max_tokens, timeout):
+            yield chunk
+        return # Stop function here
 
-    # 3. Default Fallback
-    return await stream_generic(model, messages, max_tokens, timeout, "openrouter")
+    # > XAI (GROK) DIRECT
+    elif model.startswith("xai/") or model.startswith("grok/"):
+        provider = "xai"
+        clean_model = model.replace("xai/", "").replace("grok/", "")
+        
+    # > DEEPSEEK DIRECT
+    elif model.startswith("deepseek/"):
+        provider = "deepseek"
+        clean_model = model.replace("deepseek/", "")
+
+    # --- 3. GENERIC DELEGATION (OpenRouter, Grok, DeepSeek) ---
+    # CRITICAL FIX: We yield from the generic streamer. 
+    # This ensures this function acts as a Generator in ALL scenarios.
+    async for chunk in stream_generic(clean_model, messages, max_tokens, timeout, provider):
+        yield chunk
 
 
 # =========================================================
-# GENERIC CLIENT (OpenRouter, Grok, DeepSeek)
+# GENERIC CLIENT (Handles OpenRouter, Grok, DeepSeek)
 # =========================================================
 async def stream_generic(model: str, messages: list, max_tokens: int, timeout: int, provider: str):
     
@@ -62,7 +67,9 @@ async def stream_generic(model: str, messages: list, max_tokens: int, timeout: i
         "temperature": 0.7 
     }
 
-    # Logging
+    if provider == "deepseek" and "reasoner" in model:
+        payload["max_tokens"] = 8192
+
     print(f"[ZenoAi] Routing via {provider.upper()} -> Model: {model}")
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=10.0)) as client:
@@ -76,26 +83,27 @@ async def stream_generic(model: str, messages: list, max_tokens: int, timeout: i
                 if line.startswith("data: ") and "[DONE]" not in line:
                     try:
                         data = json.loads(line[6:])
+                        
+                        # Handle standard OpenAI/OpenRouter format
                         if "choices" in data and len(data["choices"]) > 0:
                             delta = data["choices"][0].get("delta", {})
                             if "content" in delta:
                                 yield delta["content"]
+                                
                     except: continue
 
 
 # =========================================================
-# GOOGLE GEMINI DIRECT CLIENT (Only used if NOT :free)
+# GOOGLE GEMINI SPECIAL CLIENT
 # =========================================================
 async def stream_google(model: str, messages: list, max_tokens: int, timeout: int):
     try:
-        # We strip the ID but we KEEP IT RAW because your config knows best
-        google_model_id = model.split("/")[1]
+        google_model_id = model.split("/")[1].replace(":free", "")
     except:
         google_model_id = "gemini-2.0-flash"
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{google_model_id}:streamGenerateContent?alt=sse&key={settings.GOOGLE_API_KEY}"
     
-    # Context Merging (Required for Google)
     system_prompt = "You are ZenoAi."
     conversation = []
     
@@ -119,7 +127,7 @@ async def stream_google(model: str, messages: list, max_tokens: int, timeout: in
         async with client.stream("POST", url, headers={"Content-Type": "application/json"}, json=payload) as response:
             if response.status_code != 200:
                 err = await response.aread()
-                print(f"[GOOGLE DIRECT ERROR] {err.decode()}")
+                print(f"[GOOGLE ERROR] {err.decode()}")
                 raise Exception(f"Google Error {response.status_code}")
             
             async for line in response.aiter_lines():
